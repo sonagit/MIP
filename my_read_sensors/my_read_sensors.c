@@ -74,8 +74,8 @@ int main(){
 	// create CSV to record movements
 	printf("\n Creating %s.csv file\n",filename);
 	FILE *fp; // pointer to stream
-	filename[]=strcat(filename,".csv"); // concat filename to .csv
-	fp=fopen(filename,"w+"); // open file
+	//filename=strcat(filename,".csv"); // concat filename to .csv
+	fp=fopen(strcat(filename,".csv"),"w+"); // open file
 	fprintf(fp,"theta_g,theta_a\n"); // print header to file
 	fclose(fp);
 	printf("%s.csv file created\n",filename);
