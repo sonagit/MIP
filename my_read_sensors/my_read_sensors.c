@@ -30,13 +30,13 @@ int print_data(){
 	float g_y = data.accel[1]-0.1;  // Y direction is 0.1 too high
 	float g_z = data.accel[2]-0.45; // Z direction is 0.45 too high
 	float theta_a = atan2(g_z/9.8,g_y/9.8); // angle to gravity
-	printf("        %6.2f",-theta_a);
+	printf("        %6.2f     ",-theta_a);
 	
 	// Integrate gyro data to get absolute position
 	float theta_dot = (data.gyro[0] - offset)*DEG_TO_RAD; // spin rate in rad
 	theta_g = theta_g + 0.1*theta_dot; // euler's method with t = 0.1
 	// Print angle from gyro data
-	printf("|        %6.1f", theta_g);
+	printf("|    %6.1f    ", theta_g);
 	fflush(stdout); // flush
 	return 0;
 }
