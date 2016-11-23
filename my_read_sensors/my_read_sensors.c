@@ -9,7 +9,7 @@
 
 
 // function declarations
-int initialize_imu_dmp(imu_data_t *data, imu_config_t conf);
+int initialize_imu_dmp(imu_data_t *data, imu_config_t imu_config);
 int set_imu_interrupt_func(int (*func)(void));
 int stop_imu_interrupt_func();
 
@@ -40,9 +40,11 @@ int main(){
 	printf("\nReady for some accelerometer data?!\n");
 
 	// Print header for accelerometer data.
-	printf("    Accel XYZ(m/s^2)  |\n");
-	printf("	Angle relative to g");
-
+	printf("    Accel XYZ(m/s^2)  |");
+	//printf("	Angle relative to g");
+	printf("	TaitBryan");
+	printf("\n");
+	
 	// Keep looping until state changes to EXITING
 	while(get_state()!=EXITING){
     printf("\r");
@@ -51,19 +53,19 @@ int main(){
     if(read_accel_data(&data)<0){
 		printf("read_accel_data failed\n");
 		}
-    printf("%6.2f %6.2f %6.2f ",	data.accel[0],\
+    printf("%6.2f %6.2f %6.2f   |",	data.accel[0],\
 									data.accel[1],\
             						data.accel[2]);
 	
 	// Print TaitBryan Angle: roll
-	printf("%6d",data.dmp_TaitBryan[1]);
+	printf("%6.2f   |",data.dmp_TaitBryan[1]);
 	
 	// Read gyro
 	if(read_gyro_data(&data)<0){
 			printf("read gyro data failed\n");
 	}
 	// Integrate gyro data to get absolute position
-	float theta_dot = data.gyro[0]*DEG_TO_RAD;
+	//float theta_dot = data.gyro[0]*DEG_TO_RAD;
 	
 	// Print gyro data	
 	// printf("	%6.1f",);
