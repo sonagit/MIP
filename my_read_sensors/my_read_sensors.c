@@ -13,16 +13,14 @@ int initialize_imu_dmp(imu_data_t *data, imu_config_t imu_config);
 int set_imu_interrupt_func(int (*func)(void));
 int stop_imu_interrupt_func();
 int print_data(); //prints data to console
+
 imu_data_t data; //struct to hold new data
 
 // IMU interrupt function that prints to console
 int print_data(){
-	printf("\r");
+	printf("\r ");
 
 	// Print accelerometer data
-    if(read_accel_data(&data)<0){
-		printf("read_accel_data failed\n");
-	}
     printf("%6.2f %6.2f %6.2f   |",	data.accel[0],\
 									data.accel[1],\
             						data.accel[2]);
@@ -45,8 +43,7 @@ int main(){
 
 	// set imu configuration to defaults
 	imu_config_t imu_config = get_default_imu_config();
-	//int set_imu_config_to_defaults(imu_config_t *imu_config);
-
+	
 	imu_config.orientation = ORIENTATION_Y_UP;
 	imu_config.dmp_sample_rate = 10;
 	
