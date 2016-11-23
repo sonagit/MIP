@@ -17,8 +17,8 @@ int print_data(); //prints data to console
 imu_data_t data; //struct to hold new data from IMU
 float theta_g = 0; // initialize starting angle for euler's method
 float offset = -0.5; // offset of gyro around X axis
-str filename = HW5; // file name for csv
-
+char filename = HW5; // file name for csv
+char fp;
 // IMU interrupt function that prints to console
 int print_data(){
 	printf("\r ");
@@ -77,7 +77,7 @@ int main(){
 	fp=fopen(filename,"w+"); // open file
 	fprintf(fp,"theta_g,theta_a\n"); // print header to file
 	fclose(fp);
-	printf("%s.csv file created\n",filename)
+	printf("%s.csv file created\n",filename);
 	
 	// print welcome
 	printf("\nReady for some accelerometer data?!\n\n");
