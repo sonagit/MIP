@@ -65,10 +65,6 @@ int main(){
 	
 	// Keep looping until state changes to EXITING
 	while(get_state()!=EXITING){		
-		// Read gyro
-		if(read_gyro_data(&data)<0){
-			printf("read gyro data failed\n");
-		}
 		/*
 		// Integrate gyro data to get absolute position
 		float theta_dot = data.gyro[0]*DEG_TO_RAD; // spin rate
