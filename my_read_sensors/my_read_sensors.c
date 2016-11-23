@@ -18,7 +18,7 @@ imu_data_t data; //struct to hold new data from IMU
 float theta_g = 0; // initialize starting angle for euler's method
 float offset = -0.5; // offset of gyro around X axis
 char filename[] = "HW5"; // file name for csv
-char fp;
+
 // IMU interrupt function that prints to console
 int print_data(){
 	printf("\r ");
