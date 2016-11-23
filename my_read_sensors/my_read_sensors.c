@@ -39,6 +39,7 @@ int print_data(){
 	printf("|    %6.1f    ", theta_g);
 	
 	// print thetas to csv file
+	FILE *fp;
 	fp=fopen(filename,"w+"); // open file
 	fprintf(fp,"%6.2f,%6.2f\n",theta_g,theta_a); // print to file
 	fclose(fp);
@@ -73,7 +74,7 @@ int main(){
 	// create CSV to record movements
 	printf("\n Creating %s.csv file\n",filename);
 	FILE *fp; // pointer to stream
-	filename=strcat(filename,".csv"); // concat filename to .csv
+	filename[]=strcat(filename,".csv"); // concat filename to .csv
 	fp=fopen(filename,"w+"); // open file
 	fprintf(fp,"theta_g,theta_a\n"); // print header to file
 	fclose(fp);
