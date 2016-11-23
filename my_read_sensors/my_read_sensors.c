@@ -13,10 +13,10 @@ int initialize_imu_dmp(imu_data_t *data, imu_config_t imu_config);
 int set_imu_interrupt_func(int (*func)(void));
 int stop_imu_interrupt_func();
 
+imu_data_t data; //struct to hold new data
+
 int main(){
   
-	imu_data_t data; //struct to hold new data
-	
 	// Initialize cape library
 	if(initialize_cape()){
 	  printf("ERROR: failed to initialize_cape\n");
@@ -28,8 +28,9 @@ int main(){
 	int set_imu_config_to_defaults(imu_config_t *imu_config);
 
 	imu_config.orientation = ORIENTATION_Y_UP;
+	imu_config.dmp_sample_rate = 10;
 	
-	if(initialize_imu(&data, imu_config)){
+	if(initialize_imu_dmp(&data, imu_config)){
 		printf("initialize_imu_failed\n");
 		printf("ERROR: IMU might be toast\n");
 		blink_led(RED, 5, 10);
@@ -39,8 +40,8 @@ int main(){
 	printf("\nReady for some accelerometer data?!\n");
 
 	// Print header for accelerometer data.
-	printf("    Accel XYZ(m/s^2)  |");
-	printf("	Angle to Gravity")
+	printf("    Accel XYZ(m/s^2)	|");
+	printf("	Angle to Gravity (rad)");
 	printf("\n");
 	
 	// Keep looping until state changes to EXITING
@@ -57,7 +58,7 @@ int main(){
 	float g_y = data.accel[1]-0.1;  // Y direction is 0.1 too high
 	float g_z = data.accel[2]-0.45; // Z direction is 0.45 too high
 	float theta = atan2(g_z/9.8,g_y/9.8); // angle to gravity
-	printf("	%6f",theta);
+	printf("	%6.2f",-theta);
 	
 	// Read gyro
 	if(read_gyro_data(&data)<0){
