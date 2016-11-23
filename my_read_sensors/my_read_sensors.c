@@ -30,7 +30,7 @@ int main(){
 	imu_config.dmp_sample_rate = 10;
 	imu_config.orientation = ORIENTATION_Y_UP;
 	
-	if(initialize_imu(&data, conf)){
+	if(initialize_imu(&data, imu_config)){
 		printf("initialize_imu_failed\n");
 		printf("ERROR: IMU might be toast\n");
 		blink_led(RED, 5, 10);
