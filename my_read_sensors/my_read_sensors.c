@@ -27,16 +27,21 @@ int main(){
 	imu_config_t conf = get_default_imu_config();
 	int set_imu_config_to_defaults(imu_config_t *conf);
 
+	imu_config.dmp_sample_rate = 10;
+	imu_config.orientation = ORIENTATION_Y_UP;
+	
 	if(initialize_imu(&data, conf)){
 		printf("initialize_imu_failed\n");
+		printf("ERROR: IMU might be toast\n");
+		blink_led(RED, 5, 10);
 		return -1;
 	}
 
 	printf("\nReady for some accelerometer data?!\n");
 
 	// Print header for accelerometer data.
-  printf("   Accel XYZ(m/s^2)  \n");
-
+	printf("    Accel XYZ(m/s^2)  |\n");
+	printf("	Angle relative to g");
 
 	// Keep looping until state changes to EXITING
 	while(get_state()!=EXITING){
@@ -44,14 +49,28 @@ int main(){
     
     // Print accelerometer data
     if(read_accel_data(&data)<0){
-			printf("read_accel_data failed\n");
+		printf("read_accel_data failed\n");
 		}
     printf("%6.2f %6.2f %6.2f ",	data.accel[0],\
-            											data.accel[1],\
-            											data.accel[2]);
+									data.accel[1],\
+            						data.accel[2]);
+	
+	// Print TaitBryan Angle: roll
+	printf("%6d",dmp_TaitBryan[1]);
+	
+	// Read gyro
+	if(read_gyro_data(&data)<0){
+			printf("read gyro data failed\n");
+	}
+	// Integrate gyro data to get absolute position
+	float theta_dot data.gyro[0]*DEG_TO_RAD;
+	
+	// Print gyro data	
+	printf("	%6.1f",);
 		
-		fflush(stdout); // flush
-		usleep(100000); // sleep for 0.1 second
+	
+	fflush(stdout); // flush
+	usleep(100000); // sleep for 0.1 second
 	}
 	
 	// exit cleanly
