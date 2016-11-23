@@ -33,10 +33,10 @@ int print_data(){
 	printf("        %6.2f",-theta_a);
 	
 	// Integrate gyro data to get absolute position
-	float theta_dot = data.gyro[0]*DEG_TO_RAD; // spin rate	
+	float theta_dot = (data.gyro[0] - offset)*DEG_TO_RAD; // spin rate in rad
 	theta_g = theta_g + 0.1*theta_dot; // euler's method with t = 0.1
 	// Print angle from gyro data
-	printf("	%6.1f", theta_g);
+	printf("|        %6.1f", theta_g);
 	fflush(stdout); // flush
 	return 0;
 }
@@ -65,16 +65,16 @@ int main(){
 	
 	// Print header for accelerometer data.
 	printf("    Accel XYZ(m/s^2)	|");
-	printf("    Angle to Gravity from Accel(rad)   |");
-	printf("    Angle to Gravity from Gyro(rad)");
+	printf("    theta_g (rad)   |");
+	printf("    theta_a (rad)");
 	printf("\n");
 	
 	// sets the interrupt function to print data immediately after the header.
 	set_imu_interrupt_func(&print_data);
 	
 	// Keep looping until state changes to EXITING
-	while(get_state()!=EXITING{
-		usleep(100000); // sleep for 0.1 second
+	while(get_state()!=EXITING) {
+		usleep(10000); // sleep for 0.1 second
 	}
 	
 	// exit cleanly
