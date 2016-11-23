@@ -15,7 +15,7 @@ int stop_imu_interrupt_func();
 
 int main(){
   
-  imu_data_t data; //struct to hold new data
+	imu_data_t data; //struct to hold new data
 	
 	// Initialize cape library
 	if(initialize_cape()){
@@ -24,8 +24,8 @@ int main(){
 	}
 
 	// default imu configuration
-	imu_config_t conf = get_default_imu_config();
-	int set_imu_config_to_defaults(imu_config_t *conf);
+	imu_config_t imu_config = get_default_imu_config();
+	int set_imu_config_to_defaults(imu_config_t *imu_config);
 
 	imu_config.dmp_sample_rate = 10;
 	imu_config.orientation = ORIENTATION_Y_UP;
@@ -56,17 +56,17 @@ int main(){
             						data.accel[2]);
 	
 	// Print TaitBryan Angle: roll
-	printf("%6d",dmp_TaitBryan[1]);
+	printf("%6d",data.dmp_TaitBryan[1]);
 	
 	// Read gyro
 	if(read_gyro_data(&data)<0){
 			printf("read gyro data failed\n");
 	}
 	// Integrate gyro data to get absolute position
-	float theta_dot data.gyro[0]*DEG_TO_RAD;
+	float theta_dot = data.gyro[0]*DEG_TO_RAD;
 	
 	// Print gyro data	
-	printf("	%6.1f",);
+	// printf("	%6.1f",);
 		
 	
 	fflush(stdout); // flush
