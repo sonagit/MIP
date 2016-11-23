@@ -32,6 +32,7 @@ int print_data(){
 	printf("	%6.2f",-theta);
 	
 	fflush(stdout); // flush
+	return 0;
 }
 
 int main(){
