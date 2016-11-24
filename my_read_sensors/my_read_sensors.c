@@ -40,7 +40,7 @@ int print_data(){
 	
 	// print thetas to csv file
 	FILE *fp;
-	fp=fopen(filename,"w+"); // open file
+	fp=fopen(filename,"a"); // open file to append
 	fprintf(fp,"%6.2f,%6.2f\n",theta_g,theta_a); // print to file
 	fclose(fp);
 	
@@ -72,12 +72,11 @@ int main(){
 	}
 	
 	// create CSV to record movements
-	printf("\n Creating %s.csv file\n",filename);
+	printf("\nCreating %s.csv file\n",filename);
 	FILE *fp; // pointer to stream
 	//filename=strcat(filename,".csv"); // concat filename to .csv
-	fp=fopen(strcat(filename,".csv"),"w+"); // open file
+	fp=fopen(strcat(filename,".csv"),"w"); // create empty file to write
 	fprintf(fp,"theta_g,theta_a\n"); // print header to file
-	fclose(fp);
 	printf("%s.csv file created\n",filename);
 	
 	// print welcome
@@ -98,6 +97,7 @@ int main(){
 	}
 	
 	// exit cleanly
+	fclose(fp);
 	power_off_imu();
 	cleanup_cape();
 	return 0;
