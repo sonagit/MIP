@@ -38,9 +38,9 @@ int print_data(){
 	theta_a = atan2(-g_z/9.8,g_y/9.8); // angle to gravity
 	
 	// filter high freq noise out of accelerometer data
-	//filtered_theta_a = march_filter(&LP,theta_a);
-	//printf("        %6.2f      ", filtered_theta_a);
-	printf("        %6.2f      ", theta_a);
+	filtered_theta_a = march_filter(&LP,theta_a);
+	printf("        %6.2f      ", filtered_theta_a);
+	//printf("        %6.2f      ", theta_a);
 
 	// Integrate gyro data to get absolute position
 	theta_dot = (data.gyro[0] - offset)*DEG_TO_RAD; // spin rate in rad
@@ -65,21 +65,24 @@ int print_data(){
 * int main()
 ******************************************************************************/
 int main(){
-  printf("\nWelcome to filter madness!\n");
-
+	printf("\n------------------------------");
+	printf("\n| Welcome to filter madness! |\n");
+	printf("------------------------------\n");
+	
 	// Initialize cape library
 	if(initialize_cape()){
 		printf("ERROR: failed to initialize_cape\n");
 		return -1;
 	}
-
-  // get yourself some filters
-  LP = create_first_order_lowpass(1.0/SAMPLE_RATE, TIME_CONSTANT);
-  HP = create_first_order_highpass(1.0/SAMPLE_RATE, TIME_CONSTANT);
+	// Calc time step from sample rate
+	const float TIME_STEP = 1.0/(float)SAMPLE_RATE;
+	// get yourself some filters
+	LP = create_first_order_lowpass(TIME_STEP, TIME_CONSTANT);
+	HP = create_first_order_highpass(TIME_STEP, TIME_CONSTANT);
   
-  // reset them filters
-  reset_filter(&LP);
-  reset_filter(&HP);
+	// reset them filters
+	reset_filter(&LP);
+	reset_filter(&HP);
 
 	// set imu configuration to defaults
 	imu_config_t imu_config = get_default_imu_config();
