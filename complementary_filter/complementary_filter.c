@@ -1,49 +1,61 @@
 /*******************************************************************************
-* my_read_sensors.c
+* complementary_filter.c
 *
-* Uses the DMP mode to print the accelerometer data to the console at 10hz
+* This is a filter....
 *******************************************************************************/
 
 #include <usefulincludes.h>
 #include <roboticscape.h>
+
+#define SAMPLE_RATE 100
+#define TIME_CONSTANT 1.0
+
 
 // function declarations
 int initialize_imu_dmp(imu_data_t *data, imu_config_t imu_config);
 int set_imu_interrupt_func(int (*func)(void));
 int stop_imu_interrupt_func();
 int print_data(); //prints data to console
-	
+
 // variable declarations
 imu_data_t data; //struct to hold new data from IMU
-float theta_g = 0; // initialize starting angle for euler's method
+float g_y, g_z, theta_a, filtered_theta_a, filtered_theta_g; // gravity, thetas
+float theta_dot, theta_g = 0; // initialize starting angle for euler's method
 float offset = -0.5; // offset of gyro around X axis
-char filename[] = "HW5"; // file name for csv
+char filename[] = "HW6_Filtered"; // file name for csv
+d_filter_t LP, HP; // Lowpass and Highpass filters
 
 // IMU interrupt function that prints to console
 int print_data(){
 	printf("\r ");
 
 	// Print accelerometer data
-    printf("%6.2f %6.2f %6.2f   |",	data.accel[0],\
+	printf("%6.2f %6.2f %6.2f   |",	data.accel[0],\
 									data.accel[1],\
                   data.accel[2]);
-	float g_y = data.accel[1]-0.1;  // Y direction is 0.1 too high
-	float g_z = data.accel[2]-0.45; // Z direction is 0.45 too high
-	float theta_a = atan2(-g_z/9.8,g_y/9.8); // angle to gravity
-	printf("        %6.2f      ",-theta_a);
+	g_y = data.accel[1]-0.1;  // Y direction is 0.1 too high
+	g_z = data.accel[2]-0.45; // Z direction is 0.45 too high
+	theta_a = atan2(-g_z/9.8,g_y/9.8); // angle to gravity
 	
+	// filter high freq noise out of accelerometer data
+	filtered_theta_a = march_filter(&LP,theta_a);
+	printf("        %6.2f      ", filtered_theta_a);
+
 	// Integrate gyro data to get absolute position
-	float theta_dot = (data.gyro[0] - offset)*DEG_TO_RAD; // spin rate in rad
-	theta_g = theta_g + 0.05*theta_dot; // euler's method with t = 0.05
+	theta_dot = (data.gyro[0] - offset)*DEG_TO_RAD; // spin rate in rad
+	theta_g = theta_g + 0.01*theta_dot; // euler's method with t = 0.01
+
+	// filter low freq noise out of gyro data
+	filtered_theta_g = march_filter(&HP,theta_g);
 	// Print angle from gyro data
-	printf("|    %6.1f    ", theta_g);
-	
+	printf("|    %6.1f    ", filtered_theta_g);
+
 	// print thetas to csv file
 	FILE *fp;
 	fp=fopen(filename,"a"); // open file to append
-	fprintf(fp,"%6.2f,%6.2f\n",theta_g,theta_a); // print to file
-	fclose(fp);
-	
+	fprintf(fp,"%6.2f,%6.2f\n",filtered_theta_g,filtered_theta_a); // print
+	fclose(fp); // close file
+
 	fflush(stdout); // flush
 	return 0;
 }
@@ -51,18 +63,27 @@ int print_data(){
 * int main()
 ******************************************************************************/
 int main(){
-  
+  printf("\nWelcome to filter madness!\n");
+
 	// Initialize cape library
 	if(initialize_cape()){
 		printf("ERROR: failed to initialize_cape\n");
 		return -1;
 	}
 
+  // get yourself some filters
+  LP = create_first_order_lowpass(1.0/SAMPLE_RATE, TIME_CONSTANT);
+  HP = create_first_order_highpass(1.0/SAMPLE_RATE, TIME_CONSTANT);
+  
+  // reset them filters
+  reset_filter(&LP);
+  reset_filter(&HP);
+
 	// set imu configuration to defaults
 	imu_config_t imu_config = get_default_imu_config();
-	
+
 	imu_config.orientation = ORIENTATION_Y_UP; // change orientation to Y up
-	imu_config.dmp_sample_rate = 20; // change sample rate
+	imu_config.dmp_sample_rate = SAMPLE_RATE;  // change sample rate
 	
 	if(initialize_imu_dmp(&data, imu_config)){
 		printf("initialize_imu_dmp() failed\n");
@@ -74,9 +95,8 @@ int main(){
 	// create CSV to record movements
 	printf("\nCreating %s.csv file\n",filename);
 	FILE *fp; // pointer to stream
-	//filename=strcat(filename,".csv"); // concat filename to .csv
 	fp=fopen(strcat(filename,".csv"),"w"); // create empty file to write
-	fprintf(fp,"theta_g,theta_a\n"); // print header to file
+	fprintf(fp,"filtered_theta_g,filtered_theta_a\n"); // print header to file
 	printf("%s.csv file created\n",filename);
 	
 	// print welcome
