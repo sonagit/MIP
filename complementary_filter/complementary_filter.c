@@ -40,18 +40,16 @@ int print_data(){
 	// filter high freq noise out of accelerometer data
 	filtered_theta_a = march_filter(&LP,theta_a);
 	printf("        %6.2f      ", filtered_theta_a);
-	//printf("        %6.2f      ", theta_a);
-
+	
 	// Integrate gyro data to get absolute position
 	theta_dot = (data.gyro[0] - offset)*DEG_TO_RAD; // spin rate in rad
 	theta_g = theta_g + 0.01*theta_dot; // euler's method with t = 0.01
 
 	// filter low freq noise out of gyro data
-	//filtered_theta_g = march_filter(&HP,theta_g);
+	filtered_theta_g = march_filter(&HP,theta_g);
 	// Print angle from gyro data
-	//printf("|    %6.1f    ", filtered_theta_g);
-	printf("|    %6.1f    ", theta_g);
-
+	printf("|    %6.1f    ", filtered_theta_g);
+	
 	// print thetas to csv file
 	FILE *fp;
 	fp=fopen(filename,"a"); // open file to append
