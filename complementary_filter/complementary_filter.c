@@ -99,7 +99,7 @@ int main(){
 	printf("\nCreating %s.csv file\n",filename);
 	FILE *fp; // pointer to stream
 	fp=fopen(strcat(filename,".csv"),"w"); // create empty file to write
-	fprintf(fp,"filtered_theta_g,filtered_theta_a\n"); // print header to file
+	//fprintf(fp,"filtered_theta_g,filtered_theta_a\n"); // print header to file
 	printf("%s.csv file created\n",filename);
 	
 	// print welcome
