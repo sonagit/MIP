@@ -22,12 +22,16 @@ int inner_loop(); // inner loop function
 int disarm_controller();
 int arm_controller();
 int wait_for_starting_condition();
+int zero_out_controller();
 
 // threads
 void* print_data(void* ptr);
+void* setpoint_manager(void* ptr);
  
 // Global variables
 imu_data_t data; //struct to hold new data from IMU
+d_filter_t LP, HP; // Lowpass and Highpass filters structs
+
 float g_y, g_z, theta_a, filtered_theta_a, filtered_theta_g, theta; // gravity, thetas
 float theta_dot, theta_g = 0; // initialize starting angle for euler's method
 float PhiLeft = 0, PhiRight = 0, Phi;// init starting phi angles
@@ -35,7 +39,6 @@ float d1u=0, d1u1=0, d1u2=0, theta1=0, theta2=0;
 float mount_angle = 0.39; // set angle of BBB on MIP
 float offset = 0; // offset of gyro around X axis
 const float TIME_STEP = 1.0/(float)SAMPLE_RATE; // Calc dt from sample rate
-d_filter_t LP, HP; // Lowpass and Highpass filters structs
 
 /*******************************************************************************
 * arm_state_t
@@ -46,6 +49,7 @@ typedef enum arm_state_t{
 	ARMED,
 	DISARMED
 }arm_state_t;
+arm_state_t arm_state = DISARMED;
 
 /******************************************************************************
 * int main()
@@ -88,15 +92,15 @@ int main(){
 	}
 	
 	// Print header to console
-	printf("    Accel XYZ(m/s^2)	|");
-	printf("    theta_g (rad)   |");
-	printf("    theta_a (rad)   |");
+	printf("   Accel XYZ(m/s^2)  |");
+	printf("  theta_g (rad) |");
+	printf("  theta_a (rad) |");
 	printf("  theta  (rad)  |");
 	printf("\n");
 	
 	// start print_data thread
     pthread_t print_data_thread;
-    pthread_create(&print_data_thread, NULL, print_data, (void*) NULL);
+    //pthread_create(&print_data_thread, NULL, print_data, (void*) NULL);
     
 	// start setpoint thread
 	pthread_t  setpoint_thread;
@@ -133,7 +137,7 @@ int inner_loop(){
 		disable_motors();
 		return 0;
 	}
-	if(setpoint.arm_state==DISARMED){
+	if(arm_state==DISARMED){
 		return 0;
 	}
 	printf("\r ");
@@ -169,13 +173,13 @@ int inner_loop(){
     // Control motors based on D1 controller
     d1u = 1.8385*d1u1 - 0.82858*d1u2 - 3.8347*theta + 7.3529*theta1 - 3.5211*theta2;
     // shift values down (I know I need to learn how to use the damn ring buffer)
-	d1u1=d1u;
 	d1u2=d1u1;
-	theta1=theta;
+	d1u1=d1u;
 	theta2=theta1;
+	theta1=theta;
     set_motor(2, -1*d1u*2); // Right (neg)
     set_motor(3,d1u*2); // Left
-
+    printf("d1u: %6.2f\n",d1u);
 	return 0;
 }
 
@@ -188,14 +192,15 @@ int inner_loop(){
 
 void* print_data(void* ptr){
     while(get_state()!=EXITING){
+        printf("\r");
 
-		printf("%6.2f %6.2f %6.2f   |",	data.accel[0],\
-										data.accel[1],\
-										data.accel[2]);
-		printf("        %6.2f      |", filtered_theta_g); // Print angle from acc
-		printf("        %6.2f      |", filtered_theta_a); // Print angle from gyro
-		printf("        %6.2f      |", theta); // Print sum
-		printf("    %6.2f << Phi",Phi);
+		printf("%6.2f %6.2f %6.2f |",	data.accel[0],\
+										    data.accel[1],\
+										    data.accel[2]);
+		printf("     %6.2f     |", filtered_theta_g); // Print angle from acc
+		printf("     %6.2f     |", filtered_theta_a); // Print angle from gyro
+		printf("     %6.2f     |", theta); // Print sum
+		printf(" Phi: %6.2f",Phi);
 		
 		fflush(stdout); // flush to console (?)
 		usleep(1000000);
@@ -206,11 +211,11 @@ void* print_data(void* ptr){
 /*******************************************************************************
 * disarm_controller()
 *
-* disable motors & set the setpoint.core_mode to DISARMED
+* disable motors & set the arm state to DISARMED
 *******************************************************************************/
 int disarm_controller(){
 	disable_motors();
-	setpoint.arm_state = DISARMED;
+	arm_state = DISARMED;
 	return 0;
 }
 
@@ -223,9 +228,26 @@ int arm_controller(){
 	zero_out_controller();
 	set_encoder_pos(ENCODER_CHANNEL_L,0);
 	set_encoder_pos(ENCODER_CHANNEL_R,0);
-	// prefill_filter_inputs(&D1,theta); 
-	setpoint.arm_state = ARMED;
+	// prefill_filter_inputs(&D1,theta);
+	arm_state = ARMED;
 	enable_motors();
+	return 0;
+}
+
+/*******************************************************************************
+* 	zero_out_controller()
+*
+*	Clear the controller's memory and zero out setpoints.
+*******************************************************************************/
+int zero_out_controller(){
+	d1u = 0;
+	d1u1 = 0;
+	d1u2 = 0;
+	theta = 0.0;
+	theta1 = 0;
+	theta2 = 0;
+	Phi   = 0.0;
+	set_motor_all(0);
 	return 0;
 }
 
@@ -233,14 +255,14 @@ int arm_controller(){
 * int wait_for_starting_condition()
 *
 * Wait for MiP to be held upright long enough to begin.
-* Returns 0 if successful. Returns -1 if the wait process was interrupted by 
+* Returns 0 if successful. Returns -1 if the wait process was interrupted by
 * pause button or shutdown signal.
 *******************************************************************************/
 int wait_for_starting_condition(){
 	int checks = 0;
 	const int check_hz = 20;	// check 20 times per second
 	int checks_needed = round(START_DELAY*check_hz);
-	int wait_us = 1000000/check_hz; 
+	int wait_us = 1000000/check_hz;
 
 	// exit if state becomes paused or exiting
 	while(get_state()==RUNNING){
@@ -276,7 +298,7 @@ void* setpoint_manager(void* ptr){
 	
 	while(get_state()!=EXITING){
 		// sleep at beginning of loop so we can use the 'continue' statement
-		usleep(1000000/SETPOINT_MANAGER_HZ); 
+		usleep(1000000/SETPOINT_MANAGER_HZ);
 		
 		// nothing to do if paused, go back to beginning of loop
 		if(get_state() != RUNNING) continue;
@@ -284,11 +306,11 @@ void* setpoint_manager(void* ptr){
 		// if we got here the state is RUNNING, but controller is not
 		// necessarily armed. If DISARMED, wait for the user to pick MIP up
 		// which will we detected by wait_for_starting_condition()
-		if(setpoint.arm_state == DISARMED){
+		if(arm_state == DISARMED){
 			if(wait_for_starting_condition()==0){
 				zero_out_controller();
 				arm_controller();
-			} 
+			}
 			else continue;
 		}
 	}
