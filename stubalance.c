@@ -11,15 +11,14 @@
 
 #include "./stubalance_config.h"
 
-#define SAMPLE_RATE 200
-#define TIME_CONSTANT 2.0
+#define SAMPLE_RATE 200 // Hz
+#define TIME_CONSTANT 2.0 // Sec
 
 
 // function declarations
 int initialize_imu_dmp(imu_data_t *data, imu_config_t imu_config);
 int set_imu_interrupt_func(int (*func)(void));
-int print_data(); // prints IMU data
-void* inner_loop(void* ptr); // inner loop function
+int inner_loop(); // inner loop function
 
 // variable declarations
 imu_data_t data; //struct to hold new data from IMU
@@ -30,9 +29,6 @@ float mount_angle = 0.39; // set angle of BBB on MIP
 float offset = 0; // offset of gyro around X axis
 const float TIME_STEP = 1.0/(float)SAMPLE_RATE; // Calc dt from sample rate
 d_filter_t LP, HP; // Lowpass and Highpass filters structs
-char filename[] = "HW6_Acc-Gyro-Sum"; // file name for csv
-FILE *fp; // Makes a file pointer to stream thing I have no idea really
-int toggle = 0;
 
 /******************************************************************************
 * int main()
@@ -50,14 +46,11 @@ int main(){
 		return -1;
 	}
     
-    // start inner_loop thread
-    pthread_t inner_loop_thread;
-    pthread_create(&inner_loop_thread, NULL, inner_loop, (void*) NULL);
+    enable_motors();
     
-    // UNCOMMENT TO RECORD TO FILE
-	// open file to append thetas to csv
-	//fp=fopen(strcat(filename,".csv"),"a"); // opens file to append
-
+    // start inner_loop thread
+    //pthread_t inner_loop_thread;
+    //pthread_create(&inner_loop_thread, NULL, inner_loop, (void*) NULL);
     
     // get yourself some filters
 	LP = create_first_order_lowpass(TIME_STEP, TIME_CONSTANT);
@@ -87,7 +80,7 @@ int main(){
 	printf("\n");
 	
 	// The interrupt function will print data when invoked
-	set_imu_interrupt_func(&print_data);
+	set_imu_interrupt_func(&inner_loop);
 	
 	// Keep looping until state changes to EXITING
 	while(get_state()!=EXITING) {
@@ -103,13 +96,13 @@ int main(){
 }
 
 /******************************************************************************
-* int print_data()
+* void* inner_loop()
 *
-* IMU interrupt function that prints IMU data to console and csv file
+* Move motor in opposite direction of theta
 *
 ******************************************************************************/
-int print_data(){
-	printf("\r ");
+int inner_loop(){
+    printf("\r ");
 
 	// Integrate gyro data to get absolute position of theta
 	theta_dot = (data.gyro[0] - offset)*DEG_TO_RAD; // spin rate in rad
@@ -126,47 +119,36 @@ int print_data(){
     
     // add them together
     theta_sum = filtered_theta_a + filtered_theta_g;
-
+    
+    // disable motors if MIP tips over
+    if(fabs(theta_sum)>TIP_ANGLE){
+        disable_motors();
+    }
 	// Print data to console
-	printf("%6.2f %6.2f %6.2f   |",	data.accel[0],\
-									data.accel[1],\
-									data.accel[2]);
-	printf("        %6.2f      |", filtered_theta_g); // Print angle from acc
-	printf("        %6.2f      |", filtered_theta_a); // Print angle from gyro
-	printf("        %6.2f      |", theta_sum); // Print sum
+// 	printf("%6.2f %6.2f %6.2f   |",	data.accel[0],\
+// 									data.accel[1],\
+// 									data.accel[2]);
+// 	printf("        %6.2f      |", filtered_theta_g); // Print angle from acc
+// 	printf("        %6.2f      |", filtered_theta_a); // Print angle from gyro
+// 	printf("        %6.2f      |", theta_sum); // Print sum
 	//printf("    %6.2f << PHIAVG",PhiAvg);
 	
-    //fprintf(fp,"%6.2f,%6.2f,%6.2f\n",filtered_theta_g,filtered_theta_a,sum);
-	
-    fflush(fp); // flush to file
-	fflush(stdout); // flush to console (?)
+//	fflush(stdout); // flush to console (?)
+
+    // collect encoder positions, right wheel is reversed
+	PhiRight = -1*(float)get_encoder_pos(2) * TWO_PI/(GEARBOX*60.0);
+	PhiLeft =     (float)get_encoder_pos(3) * TWO_PI/(GEARBOX*60.0);
+	    
+    // Get average Phi
+    PhiAvg = (PhiLeft + PhiRight)/2.0;
+
+    // Control motors based on D1 controller
+    float theta
+    d1u = 1.8385*d1u1 - 0.82858*d1u2 - 3.8347*theta_sum
+    float d1u = theta_sum/PI;
+    set_motor(2, -1*d1u*2); // Right (neg)
+    set_motor(3,d1u*2); // Left
+
 	return 0;
-}
-
-/******************************************************************************
-* void* inner_loop()
-*
-* Move motor in opposite direction of theta
-*
-******************************************************************************/
-void* inner_loop(void* ptr){
-    enable_motors();
-	while(get_state()!=EXITING) {
-        // collect encoder positions, right wheel is reversed
-    	PhiRight = -1*(float)get_encoder_pos(2) * TWO_PI/(GEARBOX*60.0);
-    	PhiLeft =     (float)get_encoder_pos(3) * TWO_PI/(GEARBOX*60.0);
-    	    
-        // Get average Phi
-        PhiAvg = (PhiLeft + PhiRight)/2.0;
-
-        // Set motors to move opposite to normalized theta
-        float d1u = theta_sum/PI;
-        printf("u: %6.2f\n",d1u);
-	    set_motor(2, -1*d1u); // Right (neg)
-	    set_motor(3,d1u); // Left
-
-    	usleep(1000000); // sleep
-	}
-	return NULL;
 }
 
