@@ -19,7 +19,7 @@
 int initialize_imu_dmp(imu_data_t *data, imu_config_t imu_config);
 int set_imu_interrupt_func(int (*func)(void));
 int print_data(); // prints IMU data
-void* phi_checker(void*, ptr);
+void* inner_loop(void*, ptr);
 
 // variable declarations
 imu_data_t data; //struct to hold new data from IMU
@@ -50,9 +50,9 @@ int main(){
 		return -1;
 	}
     
-    // start phi_checker thread
-    pthread_t phi_checker_thread;
-    pthread_create(&phi_checker_thread, NULL, phi_checker, (void*) NULL);
+    // start inner_loop thread
+    pthread_t inner_loop_thread;
+    pthread_create(&inner_loop_thread, NULL, inner_loop, (void*) NULL);
     
     // UNCOMMENT TO RECORD TO FILE
 	// open file to append thetas to csv
@@ -143,12 +143,12 @@ int print_data(){
 }
 
 /******************************************************************************
-* void* phi_checker()
+* void* inner_loop()
 *
 * Check phi, get average, then move motor in opposite direction
 *
 ******************************************************************************/
-void* phi_checker(void* ptr){
+void* inner_loop(void* ptr){
 	while(get_state()!=EXITING) {
         
         // collect encoder positions, right wheel is reversed
@@ -158,9 +158,11 @@ void* phi_checker(void* ptr){
         // Get average Phi
         PhiAvg = (PhiLeft + PhiRight)/2.0;
     
-        // Set motors to move opposite to phi
-    	setmotor(2, -1*theta_sum); // Right (neg)
-    	setmotor(3,); // Left
+        // Set motors to move opposite to normalized theta
+    	setmotor(2, -1*theta_sum/TWO_PI); // Right (neg)
+    	setmotor(3,theta_sum/TWO_PI); // Left
 	}
 	return NULL;
 }
+
+
