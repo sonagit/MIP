@@ -22,9 +22,10 @@ int inner_loop(); // inner loop function
 
 // variable declarations
 imu_data_t data; //struct to hold new data from IMU
-float g_y, g_z, theta_a, filtered_theta_a, filtered_theta_g, theta_sum; // gravity, thetas
+float g_y, g_z, theta_a, filtered_theta_a, filtered_theta_g, theta; // gravity, thetas
 float theta_dot, theta_g = 0; // initialize starting angle for euler's method
 float PhiLeft = 0, PhiRight = 0, PhiAvg;// init starting phi angles
+float d1u=0, d1u1=0, d1u2=0, theta1=0, theta2=0;
 float mount_angle = 0.39; // set angle of BBB on MIP
 float offset = 0; // offset of gyro around X axis
 const float TIME_STEP = 1.0/(float)SAMPLE_RATE; // Calc dt from sample rate
@@ -76,7 +77,7 @@ int main(){
 	printf("    Accel XYZ(m/s^2)	|");
 	printf("    theta_g (rad)   |");
 	printf("    theta_a (rad)   |");
-	printf("  theta_sum  (rad)  |");
+	printf("  theta  (rad)  |");
 	printf("\n");
 	
 	// The interrupt function will print data when invoked
@@ -118,10 +119,10 @@ int inner_loop(){
 	filtered_theta_a = march_filter(&LP,theta_a);
     
     // add them together
-    theta_sum = filtered_theta_a + filtered_theta_g;
+    theta = filtered_theta_a + filtered_theta_g;
     
     // disable motors if MIP tips over
-    if(fabs(theta_sum)>TIP_ANGLE){
+    if(fabs(theta)>TIP_ANGLE){
         disable_motors();
     }
 	// Print data to console
@@ -130,7 +131,7 @@ int inner_loop(){
 // 									data.accel[2]);
 // 	printf("        %6.2f      |", filtered_theta_g); // Print angle from acc
 // 	printf("        %6.2f      |", filtered_theta_a); // Print angle from gyro
-// 	printf("        %6.2f      |", theta_sum); // Print sum
+// 	printf("        %6.2f      |", theta); // Print sum
 	//printf("    %6.2f << PHIAVG",PhiAvg);
 	
 //	fflush(stdout); // flush to console (?)
@@ -143,12 +144,14 @@ int inner_loop(){
     PhiAvg = (PhiLeft + PhiRight)/2.0;
 
     // Control motors based on D1 controller
-    float theta
-    d1u = 1.8385*d1u1 - 0.82858*d1u2 - 3.8347*theta_sum
-    float d1u = theta_sum/PI;
+    d1u = 1.8385*d1u1 - 0.82858*d1u2 - 3.8347*theta + 7.3529*theta1 - 3.5211*theta2;
+    // shift values down (I know I need to learn how to use the damn ring buffer)
+	d1u1=d1u;
+	d1u2=d1u1;
+	theta1=theta;
+	theta2=theta1;
     set_motor(2, -1*d1u*2); // Right (neg)
     set_motor(3,d1u*2); // Left
 
 	return 0;
 }
-
