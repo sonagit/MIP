@@ -20,6 +20,9 @@ int initialize_imu_dmp(imu_data_t *data, imu_config_t imu_config);
 int set_imu_interrupt_func(int (*func)(void));
 int inner_loop(); // inner loop function
 
+// threads
+void* print_data(void* ptr);
+
 // variable declarations
 imu_data_t data; //struct to hold new data from IMU
 float g_y, g_z, theta_a, filtered_theta_a, filtered_theta_g, theta; // gravity, thetas
@@ -49,9 +52,9 @@ int main(){
     
     enable_motors();
     
-    // start inner_loop thread
-    //pthread_t inner_loop_thread;
-    //pthread_create(&inner_loop_thread, NULL, inner_loop, (void*) NULL);
+    // start print_data thread
+    pthread_t print_data_thread;
+    pthread_create(&print_data_thread, NULL, print_data, (void*) NULL);
     
     // get yourself some filters
 	LP = create_first_order_lowpass(TIME_STEP, TIME_CONSTANT);
@@ -125,16 +128,6 @@ int inner_loop(){
     if(fabs(theta)>TIP_ANGLE){
         disable_motors();
     }
-	// Print data to console
-// 	printf("%6.2f %6.2f %6.2f   |",	data.accel[0],\
-// 									data.accel[1],\
-// 									data.accel[2]);
-// 	printf("        %6.2f      |", filtered_theta_g); // Print angle from acc
-// 	printf("        %6.2f      |", filtered_theta_a); // Print angle from gyro
-// 	printf("        %6.2f      |", theta); // Print sum
-	//printf("    %6.2f << PHIAVG",PhiAvg);
-	
-//	fflush(stdout); // flush to console (?)
 
     // collect encoder positions, right wheel is reversed
 	PhiRight = -1*(float)get_encoder_pos(2) * TWO_PI/(GEARBOX*60.0);
@@ -150,8 +143,30 @@ int inner_loop(){
 	d1u2=d1u1;
 	theta1=theta;
 	theta2=theta1;
-    set_motor(2, -1*d1u*2); // Right (neg)
-    set_motor(3,d1u*2); // Left
+    set_motor(2, -1*d1u); // Right (neg)
+    set_motor(3,d1u); // Left
 
 	return 0;
+}
+
+/******************************************************************************
+* void* print_data()
+*
+* Print data to console
+*
+******************************************************************************/
+void* print_data(void* ptr){
+    while(get_state()!=EXITING){
+    	printf("%6.2f %6.2f %6.2f   |",	data.accel[0],\
+    									data.accel[1],\
+    									data.accel[2]);
+    	printf("        %6.2f      |", filtered_theta_g); // Print angle from acc
+    	printf("        %6.2f      |", filtered_theta_a); // Print angle from gyro
+    	printf("        %6.2f      |", theta); // Print sum
+    	printf("    %6.2f << PHIAVG",PhiAvg);
+    	
+    	fflush(stdout); // flush to console (?)
+    	usleep(1000000);
+    }
+	return NULL;
 }
