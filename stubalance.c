@@ -19,7 +19,7 @@
 int initialize_imu_dmp(imu_data_t *data, imu_config_t imu_config);
 int set_imu_interrupt_func(int (*func)(void));
 int print_data(); // prints IMU data
-void* inner_loop(void*, ptr);
+void* inner_loop(void* ptr); // inner loop function
 
 // variable declarations
 imu_data_t data; //struct to hold new data from IMU
@@ -27,12 +27,12 @@ float g_y, g_z, theta_a, filtered_theta_a, filtered_theta_g, theta_sum; // gravi
 float theta_dot, theta_g = 0; // initialize starting angle for euler's method
 float PhiLeft = 0, PhiRight = 0, PhiAvg;// init starting phi angles
 float mount_angle = 0.39; // set angle of BBB on MIP
-float offset = -0.5; // offset of gyro around X axis
+float offset = 0; // offset of gyro around X axis
 const float TIME_STEP = 1.0/(float)SAMPLE_RATE; // Calc dt from sample rate
 d_filter_t LP, HP; // Lowpass and Highpass filters structs
 char filename[] = "HW6_Acc-Gyro-Sum"; // file name for csv
 FILE *fp; // Makes a file pointer to stream thing I have no idea really
-
+int toggle = 0;
 
 /******************************************************************************
 * int main()
@@ -95,7 +95,8 @@ int main(){
 	}
 	
 	// exit cleanly
-	fclose(fp);
+	//fclose(fp);
+	disable_motors();
 	power_off_imu();
 	cleanup_cape();
 	return 0;
@@ -112,14 +113,14 @@ int print_data(){
 
 	// Integrate gyro data to get absolute position of theta
 	theta_dot = (data.gyro[0] - offset)*DEG_TO_RAD; // spin rate in rad
-	theta_g = theta_g + TIME_STEP*theta_dot - mount_angle; // euler's method
+	theta_g = theta_g + TIME_STEP*theta_dot; // euler's method
 	// filter low freq noise out of gyro data
-	filtered_theta_g = march_filter(&HP,theta_g);
+	filtered_theta_g = march_filter(&HP,theta_g + mount_angle);
 
     // calc theta from accelerometer G and Z components
 	g_y = data.accel[1]-0.1;  // Y direction is 0.1 too high
 	g_z = data.accel[2]-0.45; // Z direction is 0.45 too high
-	theta_a = atan2(-g_z/9.8,g_y/9.8) - mount_angle; // angle to gravity
+	theta_a = atan2(-g_z/9.8,g_y/9.8) + mount_angle; // angle to gravity
 	// filter high freq noise out of accelerometer data
 	filtered_theta_a = march_filter(&LP,theta_a);
     
@@ -145,24 +146,27 @@ int print_data(){
 /******************************************************************************
 * void* inner_loop()
 *
-* Check phi, get average, then move motor in opposite direction
+* Move motor in opposite direction of theta
 *
 ******************************************************************************/
 void* inner_loop(void* ptr){
+    enable_motors();
 	while(get_state()!=EXITING) {
-        
         // collect encoder positions, right wheel is reversed
     	PhiRight = -1*(float)get_encoder_pos(2) * TWO_PI/(GEARBOX*60.0);
     	PhiLeft =     (float)get_encoder_pos(3) * TWO_PI/(GEARBOX*60.0);
     	    
         // Get average Phi
         PhiAvg = (PhiLeft + PhiRight)/2.0;
-    
+
         // Set motors to move opposite to normalized theta
-    	setmotor(2, -1*theta_sum/TWO_PI); // Right (neg)
-    	setmotor(3,theta_sum/TWO_PI); // Left
+        float d1u = theta_sum/PI;
+        printf("u: %6.2f\n",d1u);
+	    set_motor(2, -1*d1u); // Right (neg)
+	    set_motor(3,d1u); // Left
+
+    	usleep(1000000); // sleep
 	}
 	return NULL;
 }
-
 
