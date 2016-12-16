@@ -18,7 +18,7 @@
 // function declarations
 int initialize_imu_dmp(imu_data_t *data, imu_config_t imu_config);
 int set_imu_interrupt_func(int (*func)(void));
-int inner_loop(); // inner loop function
+int controller(); // inner loop function
 int disarm_controller();
 int arm_controller();
 int wait_for_starting_condition();
@@ -32,11 +32,11 @@ void* setpoint_manager(void* ptr);
 imu_data_t data; //struct to hold new data from IMU
 d_filter_t LP, HP; // Lowpass and Highpass filters structs
 
-float g_y, g_z, theta_a, filtered_theta_a, filtered_theta_g, theta; // gravity, thetas
-float theta_dot, theta_g = 0; // initialize starting angle for euler's method
-float PhiLeft = 0, PhiRight = 0, Phi=0;// init starting phi angles
-float d1u=0, d1u1=0, d1u2=0, theta1=0, theta2=0;
-float mount_angle = 0.39; // set angle of BBB on MIP
+float g_y, g_z, theta_a, filtered_theta_a, filtered_theta_g, theta; //gravity,thetas
+float theta_dot, theta_g=0; // initialize starting angle for euler's method
+float PhiLeft=0, PhiRight=0, Phi=0, Phi1=0, theta_r=0, theta_r1=0;//outer loop
+float d1u=0, d1u1=0, d1u2=0, theta_e=0, theta_e1=0, theta_e2=0; // inner loop
+float mount_angle = 0.4; // set angle of BBB on MIP
 float offset = 0; // offset of gyro around X axis
 const float TIME_STEP = 1.0/(float)SAMPLE_RATE; // Calc dt from sample rate
 
@@ -100,14 +100,14 @@ int main(){
 	
 	// start print_data thread
     pthread_t print_data_thread;
-    //pthread_create(&print_data_thread, NULL, print_data, (void*) NULL);
+    pthread_create(&print_data_thread, NULL, print_data, (void*) NULL);
     
 	// start setpoint thread
 	pthread_t  setpoint_thread;
 	pthread_create(&setpoint_thread, NULL, setpoint_manager, (void*) NULL);
 
-		// The interrupt function will print data when invoked
-	set_imu_interrupt_func(&inner_loop);
+	// The interrupt function will print data when invoked
+	set_imu_interrupt_func(&controller);
 	
 	set_state(RUNNING);
 	
@@ -124,24 +124,13 @@ int main(){
 }
 
 /******************************************************************************
-* int inner_loop()
+* int controller()
 *
-* balance MIP at smaller time scale
+* balance MIP
 *
 ******************************************************************************/
-int inner_loop(){
+int controller(){
     
-	
-	// exit if the controller is disarmed or state is exiting
-	if(get_state() == EXITING){
-		disable_motors();
-		return 0;
-	}
-	if(arm_state==DISARMED){
-		return 0;
-	}
-	printf("\r ");
-
 	// Integrate gyro data to get absolute position of theta
 	theta_dot = (data.gyro[0] - offset)*DEG_TO_RAD; // spin rate in rad
 	theta_g = theta_g + TIME_STEP*theta_dot; // euler's method
@@ -164,22 +153,41 @@ int inner_loop(){
 	}
 	
     // collect encoder positions, right wheel is reversed
-	PhiRight = -1*(float)get_encoder_pos(2) * TWO_PI/(GEARBOX*60.0);
-	PhiLeft =     (float)get_encoder_pos(3) * TWO_PI/(GEARBOX*60.0);
+	PhiRight = -1*(float)get_encoder_pos(3) * TWO_PI/(GEARBOX*60.0);
+	PhiLeft =     (float)get_encoder_pos(2) * TWO_PI/(GEARBOX*60.0);
 	    
     // Get average Phi
     Phi = (PhiLeft + PhiRight)/2.0 + theta;
 
+    // Get desired theta from outer loop D2 controller
+    theta_r = 1.6666*(Phi - 0.9975*Phi1) + 0.9608*theta_r1
+    Phi1=Phi;
+    theta_r1=theta;
+
+    // theta error is reference theta - current theta 
+    theta_e = theta_r - theta;
+
     // Control motors based on D1 controller
-    d1u = 1.8372*d1u1 - 0.83725*d1u2 - 3.8333*theta + 7.3476*theta1 - 3.5171*theta2;
+    d1u = 1.8372*d1u1 - 0.83725*d1u2 - 3.8333*theta_e + 7.3476*theta_e1 - 3.5171*theta_e2;
 
     // shift values down (I know I need to learn how to use the damn ring buffer)
 	d1u2=d1u1;
 	d1u1=d1u;
-	theta2=theta1;
-	theta1=theta;
-    set_motor(2, -1*d1u); // Right (neg)
-    set_motor(3,d1u); // Left
+	theta_e2=theta_e1;
+	theta_e1=theta_e;
+    
+	// exit if the controller is disarmed or state is exiting
+	if(get_state() == EXITING){
+		disable_motors();
+		return 0;
+	}
+	if(arm_state==DISARMED){
+		return 0;
+	}
+	printf("\r ");
+
+    set_motor(2, d1u); // Left
+    set_motor(3, -1*d1u); // Right (neg)
     printf("d1u: %6.2f",d1u);
 	return 0;
 }
@@ -244,10 +252,11 @@ int zero_out_controller(){
 	d1u = 0;
 	d1u1 = 0;
 	d1u2 = 0;
-	theta = 0.0;
-	theta1 = 0;
-	theta2 = 0;
+	theta_e = 0.0;
+	theta_e1 = 0;
+	theta_e2 = 0;
 	Phi   = 0.0;
+	Phi1 = 0;
 	set_motor_all(0);
 	return 0;
 }
