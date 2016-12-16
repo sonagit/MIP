@@ -93,9 +93,9 @@ int main(){
 	
 	// Print header to console
 	printf("   Accel XYZ(m/s^2)  |");
-	printf("  theta_g (rad) |");
-	printf("  theta_a (rad) |");
-	printf("  theta  (rad)  |");
+	printf(" theta |");
+	printf("  Phi  |");
+	printf("   u   |");
 	printf("\n");
 	
 	// start print_data thread
@@ -160,12 +160,12 @@ int controller(){
     Phi = (PhiLeft + PhiRight)/2.0 + theta;
 
     // Get desired theta from outer loop D2 controller
-    theta_r = 1.6666*(Phi - 0.9975*Phi1) + 0.9608*theta_r1
+    theta_r = 1.6666*(Phi - 0.9975*Phi1) + 0.9608*theta_r1;
     Phi1=Phi;
-    theta_r1=theta;
+    theta_r1=theta_r;
 
-    // theta error is reference theta - current theta 
-    theta_e = theta_r - theta;
+    // theta error is (reference theta - current theta) * prefactor ??????????
+    theta_e = (theta_r - theta)*0.333;
 
     // Control motors based on D1 controller
     d1u = 1.8372*d1u1 - 0.83725*d1u2 - 3.8333*theta_e + 7.3476*theta_e1 - 3.5171*theta_e2;
@@ -187,8 +187,8 @@ int controller(){
 	printf("\r ");
 
     set_motor(2, d1u); // Left
-    set_motor(3, -1*d1u); // Right (neg)
-    printf("d1u: %6.2f",d1u);
+    set_motor(3, -1*d1u); // Right
+
 	return 0;
 }
 
@@ -204,15 +204,14 @@ void* print_data(void* ptr){
         printf("\r");
 
 		printf("%6.2f %6.2f %6.2f |",	data.accel[0],\
-										    data.accel[1],\
-										    data.accel[2]);
-		printf("     %6.2f     |", filtered_theta_g); // Print angle from acc
-		printf("     %6.2f     |", filtered_theta_a); // Print angle from gyro
-		printf("     %6.2f     |", theta); // Print sum
-		printf(" Phi: %6.2f",Phi);
+										data.accel[1],\
+										data.accel[2]);
+		printf(" %5.2f |", theta);
+		printf(" %5.2f |", Phi);
+		printf(" %5.2f |", d1u);
 		
-		fflush(stdout); // flush to console (?)
-		usleep(1000000);
+		fflush(stdout); // flush to console (necessary?)
+		usleep(500000);
 	}
 	return NULL;
 }
@@ -255,7 +254,7 @@ int zero_out_controller(){
 	theta_e = 0.0;
 	theta_e1 = 0;
 	theta_e2 = 0;
-	Phi   = 0.0;
+	Phi = 0.0;
 	Phi1 = 0;
 	set_motor_all(0);
 	return 0;
