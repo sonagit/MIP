@@ -34,7 +34,7 @@ d_filter_t LP, HP; // Lowpass and Highpass filters structs
 
 float g_y, g_z, theta_a, filtered_theta_a, filtered_theta_g, theta; // gravity, thetas
 float theta_dot, theta_g = 0; // initialize starting angle for euler's method
-float PhiLeft = 0, PhiRight = 0, Phi;// init starting phi angles
+float PhiLeft = 0, PhiRight = 0, Phi=0;// init starting phi angles
 float d1u=0, d1u1=0, d1u2=0, theta1=0, theta2=0;
 float mount_angle = 0.39; // set angle of BBB on MIP
 float offset = 0; // offset of gyro around X axis
@@ -105,8 +105,8 @@ int main(){
 	// start setpoint thread
 	pthread_t  setpoint_thread;
 	pthread_create(&setpoint_thread, NULL, setpoint_manager, (void*) NULL);
-	
-	// The interrupt function will print data when invoked
+
+		// The interrupt function will print data when invoked
 	set_imu_interrupt_func(&inner_loop);
 	
 	set_state(RUNNING);
@@ -124,9 +124,9 @@ int main(){
 }
 
 /******************************************************************************
-* void* inner_loop()
+* int inner_loop()
 *
-* Move motor in opposite direction of theta
+* balance MIP at smaller time scale
 *
 ******************************************************************************/
 int inner_loop(){
@@ -160,7 +160,7 @@ int inner_loop(){
     
 	// disable motors if MIP tips over
 	if(fabs(theta)>TIP_ANGLE){
-        disable_motors();
+        disarm_controller();
 	}
 	
     // collect encoder positions, right wheel is reversed
@@ -171,15 +171,16 @@ int inner_loop(){
     Phi = (PhiLeft + PhiRight)/2.0 + theta;
 
     // Control motors based on D1 controller
-    d1u = 1.8385*d1u1 - 0.82858*d1u2 - 3.8347*theta + 7.3529*theta1 - 3.5211*theta2;
+    d1u = 1.8372*d1u1 - 0.83725*d1u2 - 3.8333*theta + 7.3476*theta1 - 3.5171*theta2;
+
     // shift values down (I know I need to learn how to use the damn ring buffer)
 	d1u2=d1u1;
 	d1u1=d1u;
 	theta2=theta1;
 	theta1=theta;
-    set_motor(2, -1*d1u*2); // Right (neg)
-    set_motor(3,d1u*2); // Left
-    printf("d1u: %6.2f\n",d1u);
+    set_motor(2, -1*d1u); // Right (neg)
+    set_motor(3,d1u); // Left
+    printf("d1u: %6.2f",d1u);
 	return 0;
 }
 
